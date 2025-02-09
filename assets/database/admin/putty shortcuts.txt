@@ -1,0 +1,30 @@
+ls = makita yung loob ng folder
+cd xvdd/
+cd .. 
+cd = change directory
+
+git pull = pull code
+git clone https://githum.com/Naminaminams/TINQAD.git
+cd TINQAD
+git pull
+git add .
+git commit -m 'remove casevenv' = remove folder
+git push = for username/password
+git config --list
+git config --global user.email = email
+sudo apt install python3-pip
+nano .gitignore
+
+sudo pip install psycopg2
+sudo apt-get install libpq-dev
+sudo apt install python3-pip python3-dev build-essential libssl-dev libffi-dev python3-setuptools
+pip install wheel
+pip install uwsgi flask
+nano wsgi.py
+uwsgi --socket 10.206.100.41:5000 --protocol=http -w wsgi:app
+sudo fuser -k3773/tcp
+sudo systemctl reload uwsgi
+sudo restart uwsgi
+sudo pkill -f uwsgi -9
+
+killall uwsgi
