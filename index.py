@@ -191,7 +191,7 @@ def displaypage(pathname, sessionlogout, user_id, accesstype, search):
                     returnlayout = basichome.layout  # Layout for full access users
                 elif pathname == '/profile':
                     returnlayout = user_profile.layout
-                if pathname == '/About_TINQAD':
+                elif pathname == '/About_TINQAD':
                     returnlayout = about_TINQAD.layout
                 elif pathname == '/training_instructions':
                     returnlayout = training_instructions.layout
@@ -200,15 +200,15 @@ def displaypage(pathname, sessionlogout, user_id, accesstype, search):
                 elif pathname == '/km_dashboard':
                     returnlayout = km_dashboard.layout 
                 elif pathname == '/checkinglist':
-                    returnlayout = checkinglist.layout 
+                    returnlayout = checkinglist.layout
                 elif pathname == '/SDGimpactrankings/SDG_submission':
                     returnlayout = SDG_submission.layout 
                 elif pathname == '/SDGimpactrankings/SDG_revision':
                     returnlayout = SDG_revision.layout 
                 elif pathname == '/SDG_evidencelist':
-                    returnlayout = SDG_evidencelist.layout
-                # else:
-                #     returnlayout = blankpage.layout 
+                    returnlayout = SDG_evidencelist.layout 
+                else:
+                    returnlayout = blankpage.layout
             else:
                 returnlayout = blankpage.layout
 
