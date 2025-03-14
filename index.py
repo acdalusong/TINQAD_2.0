@@ -14,7 +14,7 @@ from apps import home
 from apps import blankpage  
 
 from apps.maindashboard import homepage, user_profile, register_user, search_users, password, about_TINQAD, basichome
-from apps.admin import administration_dashboard, expensetype_add, record_expenses, training_instructions, instructions, training_documents, add_expenses, training_record, viewexpense_list, viewtraining_list
+from apps.admin import administration_dashboard, expensetype_add, record_expenses, staff_profile_management, staff_profiles, training_instructions, instructions, training_documents, add_expenses, training_record, viewexpense_list, viewtraining_list
 from apps.iqa import iqa_dashboard, more_details, acad_heads_directory, acadheads_profile
 from apps.eqa import eqa_dashboard, assessment_reports, assessment_details, accreditation_tracker, program_list, program_details, sar_details, program_info
 from apps.km import km_dashboard, SDGimpact_rankings, SDG_submission, SDG_revision, add_criteria, SDG_evidencelist, checkinglist
@@ -94,7 +94,7 @@ def displaypage(pathname, sessionlogout, user_id, accesstype, search):
             returnlayout = home.layout
         # Pages accessible only to logged-in users
         elif user_id != -1:
-            if accesstype == 2:
+            if accesstype >= 2:
                 if pathname == '/homepage':
                     returnlayout = homepage.layout  # Layout for full access users
                 elif pathname == '/profile':
@@ -129,7 +129,13 @@ def displaypage(pathname, sessionlogout, user_id, accesstype, search):
                     returnlayout = training_record.layout
                 elif pathname == '/training_record/mode=view':
                     returnlayout = viewtraining_list.layout
-                     
+                elif pathname == '/staff_profiles':
+                    if accesstype == 2:
+                        returnlayout = staff_profiles.layout
+                elif pathname == '/staff_profile_management':
+                    if accesstype == 2:
+                        returnlayout = staff_profile_management.layout
+
                 #iqa team
                 elif pathname == '/iqa_dashboard':
                     returnlayout = iqa_dashboard.layout

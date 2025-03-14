@@ -13,6 +13,7 @@ navlink_style = {
     'color': '#fff'
 }
 
+
 navbar = dbc.Navbar(
     [
         dbc.Col(
@@ -24,16 +25,18 @@ navbar = dbc.Navbar(
                                 [
                                     html.Img(
                                         src=app.get_asset_url('icons/logo-block.png'),
-                                        style={'height': '2em'}
+                                        style={'height': '2em' }
                                     ),
                                 ],
-                                className="ms-2"
+                                id='navbar-brand',
+                                className="ms-2",
+                                href="/homepage"  # This sets the link destination
                             )
                         )
                     ],
                     align="center",
                     className='g-0'
-                ), 
+                ),
             )
         ),
         html.Div(
@@ -52,60 +55,66 @@ navbar = dbc.Navbar(
 )
 
 
+
+
 @app.callback(
-    [Output('navbar_links', 'children')],
+    [Output('navbar-brand', 'href'),
+     Output('navbar_links', 'children')],
     [Input('url', 'pathname')],
     [State('currentuserid', 'data')]
 )
-
 def navbarlinks(pathname, user_id):
-    if pathname != '/' and pathname != '/home':
-        sql = """
-            SELECT 
-                user_fname AS fname, 
-                user_livedname AS livedname
-            FROM maindashboard.users 
-            WHERE user_id = %s
-        """
+    # Dynamically updates the navbar brand link and user menu based on login status.
+   
+    # Default Values
+    navbar_brand = '/homepage'
 
-        values = [user_id]
-        cols = ['fname', 'livedname']
-        df = db.querydatafromdatabase(sql, values, cols)
+    if user_id == -1:
+        return ['/', html.Div("Welcome to TINQAD!", style={"fontWeight": "bold", "fontSize": "20px", "color": "white"})]
+    
+    if pathname in ['/', '/home']:
+        return ['/', html.Div("Welcome to TINQAD!", style={"fontWeight": "bold", "fontSize": "20px", "color": "white"})]
+   
+    # Query database for user details
+    sql = """
+        SELECT
+            user_fname AS fname,
+            user_livedname AS livedname
+        FROM maindashboard.users
+        WHERE user_id = %s
+    """
 
-        
-        
-        if not df.empty:
-            fname = df['fname'][0]
-            livedname = df['livedname'][0]
 
-            name = livedname if livedname else fname
+    values = [user_id]
+    cols = ['fname', 'livedname']
+    df = db.querydatafromdatabase(sql, values, cols)
 
-            if name:
-                greeting = "Hello, %s" % name
-            else:
-                greeting = "Hi! Welcome"
+    if not df.empty:
+        # Extract user details
+        name = df['livedname'].iloc[0] or df['fname'].iloc[0] or "User"
+        greeting = f"Hello, {name}"
 
-            links = [
-                dbc.Col(
-                    dbc.DropdownMenu(
-                        [
-                            dbc.DropdownMenuItem("?? Profile", href="/profile"),
-                            dbc.DropdownMenuItem("?? Home", href="/homepage"),
-                            dbc.DropdownMenuItem("?? Logout", href="/"),
-                        ],
-                        label=html.B("?? %s" % greeting),
-                        align_end=True,
-                        in_navbar=True,
-                        nav=True
-                    ), width='auto'
-                )
-            ]
-            return [links]
-        else:
-            # Handle case where user data is not found
-            return [[html.Div("Hi! Welcome")]]
-    else:
-        return [[]]
+
+        # User dropdown menu
+        links = [
+            dbc.Col(
+                dbc.DropdownMenu(
+                    [
+                        dbc.DropdownMenuItem("👤 Profile", href="/profile"),
+                        dbc.DropdownMenuItem("🏠 Home", href="/homepage"),
+                        dbc.DropdownMenuItem("🚪 Logout", href="/"),
+                    ],
+                    label=html.B(f"🔹 {greeting}"),
+                    align_end=True,
+                    in_navbar=True,
+                    nav=True,
+                ),
+                width='auto'
+            ),
+        ]
+
+    return [navbar_brand, links]
+
 
 
 
@@ -125,29 +134,34 @@ def generate_navbar(pathname, access_type, user_id):
             html.A(html.B('Home'), href='/homepage', className="nav-link"),  
         ]
 
+
         if access_type == 1:
             sidebar += [
                 html.A('Add Training Document', href='/training_instructions', className="nav-link"),
                 html.A('Evidences for Checking', href='/checkinglist', className="nav-link"),
                 html.A('-----------------------------------', style={'color': 'white'}),
             ]
-        if access_type >= 2:
+        if access_type == 2:
             sidebar += [
                 html.A('Profile', href='/profile', className="nav-link"),
                 html.A('Search Users', href='/search_users', className="nav-link"),
                 html.A('-----------------------------------', style={'color': 'white'}),
+
 
                 # admin dashboard
                 html.A(html.B('Admin'), href='/administration_dashboard', className="nav-link"),
                 html.A('Record Expenses', href='/record_expenses', className="nav-link"),
                 html.A('Training Documents', href='/instructions', className="nav-link"),
                 html.A('View Training List', href='/training_record', className="nav-link"),
+                html.A('Staff Profile', href='/staff_profiles', className="nav-link"),
                 html.A('-----------------------------------', style={'color': 'white'}),
+
 
                 # internal qa dashboard
                 html.A(html.B('Internal QA'), href='/iqa_dashboard', className="nav-link"),
                 html.A('Academic Heads Directory', href='/acad_heads_directory', className="nav-link"),
                 html.A('-----------------------------------', style={'color': 'white'}),
+
 
                 # external qa dashboard
                 html.A(html.B('External QA'), href='/eqa_dashboard', className="nav-link"),
@@ -156,30 +170,76 @@ def generate_navbar(pathname, access_type, user_id):
                 html.A('Program List', href='/program_list', className="nav-link"),
                 html.A('-----------------------------------', style={'color': 'white'}),
 
+
                 # km team dashboard
                 html.A(html.B('KM Team'), href='/km_dashboard', className="nav-link"),
                 html.A('SDG Impact Rankings', href='/SDGimpact_rankings', className="nav-link"),
                 html.A('SDG Evidence List', href='/SDG_evidencelist', className="nav-link"),
                 html.A('-----------------------------------', style={'color': 'white'}),
 
+
                 # qa officers
                 html.A(html.B('QA Officers Dashboard'), href='/QAOfficers_dashboard', className="nav-link"),
                 html.A('QA Officers Directory', href='/qaofficers_directory', className="nav-link"),
             ]
+        if access_type >= 3:
+            sidebar += [
+                html.A('Profile', href='/profile', className="nav-link"),
+                html.A('Search Users', href='/search_users', className="nav-link"),
+                html.A('-----------------------------------', style={'color': 'white'}),
 
-        return [sidebar]
+
+                # admin dashboard
+                html.A(html.B('Admin'), href='/administration_dashboard', className="nav-link"),
+                html.A('Record Expenses', href='/record_expenses', className="nav-link"),
+                html.A('Training Documents', href='/instructions', className="nav-link"),
+                html.A('View Training List', href='/training_record', className="nav-link"),
+                html.A('-----------------------------------', style={'color': 'white'}),
+
+
+                # internal qa dashboard
+                html.A(html.B('Internal QA'), href='/iqa_dashboard', className="nav-link"),
+                html.A('Academic Heads Directory', href='/acad_heads_directory', className="nav-link"),
+                html.A('-----------------------------------', style={'color': 'white'}),
+
+
+                # external qa dashboard
+                html.A(html.B('External QA'), href='/eqa_dashboard', className="nav-link"),
+                html.A('Assessment Reports', href='/assessment_reports', className="nav-link"),
+                html.A('Assessment Tracker', href='/assessment_tracker', className="nav-link"),
+                html.A('Program List', href='/program_list', className="nav-link"),
+                html.A('-----------------------------------', style={'color': 'white'}),
+
+
+                # km team dashboard
+                html.A(html.B('KM Team'), href='/km_dashboard', className="nav-link"),
+                html.A('SDG Impact Rankings', href='/SDGimpact_rankings', className="nav-link"),
+                html.A('SDG Evidence List', href='/SDG_evidencelist', className="nav-link"),
+                html.A('-----------------------------------', style={'color': 'white'}),
+
+
+                # qa officers
+                html.A(html.B('QA Officers Dashboard'), href='/QAOfficers_dashboard', className="nav-link"),
+                html.A('QA Officers Directory', href='/qaofficers_directory', className="nav-link"),
+            ]
+    elif user_id == -1:
+        sidebar = [html.A(html.B('Login Page'), href='/', className="nav-link")]
     else:
         raise PreventUpdate
+    return [sidebar]
+
 
 sidebar = dbc.Col(
     width = 2,
     id = 'sidebar',
-    style = { 
+    style = {
         'max-height': '90vh',  # Maximum height of the navbar
         'overflow-y': 'auto'   # Enable vertical scrolling
         }    
 )
  
+
+
 
 
 def generate_footer():
@@ -197,11 +257,11 @@ def generate_footer():
                     md=3
                 ),
                 dbc.Col(
-                    [ 
+                    [
                         html.Div(html.A("About TINQAD", href="/About_TINQAD", style={'color': 'white', 'text-decoration': 'none', 'font-size': '13px'})),
                         html.Div(html.A("QAO Website", href="https://qa.upd.edu.ph/new-qao-website/", style={'color': 'white', 'text-decoration': 'none', 'font-size': '13px'})),
-                        html.P("?? qa.upd@up.edu.ph", className="mb-0", style={'font-size': '12px', 'margin-top': '2px'}), 
-                        html.P("??(02) 8981-8500 local 2092", className="mb-0", style={'font-size': '12px', 'margin-top': '2px'}),
+                        html.P("Contact Us: qa.upd@up.edu.ph", className="mb-0", style={'font-size': '12px', 'margin-top': '2px'}),
+                        html.P("Telephone: (02) 8981-8500 local 2092", className="mb-0", style={'font-size': '12px', 'margin-top': '2px'}),
                     ],
                     md=3  
                 ),
@@ -212,7 +272,7 @@ def generate_footer():
                         html.P("(c) 2023-2024 Diliman. Some rights reserved", className="mb-0", style={'font-size': '12px'}),
                         html.P("Homepage images provided by Wikipedia and Ralff Nestor Nacor", className="fw-lighter mb-0 fst-italic", style={'font-size': '12px'}),
                     ],
-                    md=3 
+                    md=3
                 ),
                 dbc.Col(
                     html.A(

@@ -152,12 +152,12 @@ def charts_subexp():
 
 
 def get_main_expenses():
-    df = db.querydatafromdatabase("SELECT main_expense_id, main_expense_name FROM adminteam.main_expenses", (), ['main_expense_id', 'main_expense_name'])
+    df = db.querydatafromdatabase("SELECT main_expense_id, main_expense_name FROM adminteam.main_expenses WHERE main_expense_del_ind is FALSE", (), ['main_expense_id', 'main_expense_name'])
     main_expenses = df.to_records(index=False).tolist()
     return main_expenses
 
 def get_sub_expenses(main_expense_id):
-    df = db.querydatafromdatabase("SELECT sub_expense_id, sub_expense_name, main_expense_id FROM adminteam.sub_expenses WHERE main_expense_id = %s", (main_expense_id,), ['sub_expense_id', 'sub_expense_name', 'main_expense_id'])
+    df = db.querydatafromdatabase("SELECT sub_expense_id, sub_expense_name, main_expense_id FROM adminteam.sub_expenses WHERE main_expense_id = %s AND sub_expense_del_ind is FALSE", (main_expense_id,), ['sub_expense_id', 'sub_expense_name', 'main_expense_id'])
     sub_expenses = df.to_records(index=False).tolist()
     return sub_expenses
 

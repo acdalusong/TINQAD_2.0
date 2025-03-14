@@ -12,6 +12,7 @@ from apps import commonmodules as cm
 from app import app
 from apps import dbconnect as db 
 
+import datetime
 import locale
 import re
 
@@ -38,10 +39,11 @@ form = dbc.Form(
                 ),
                 dbc.Col(
                     dcc.DatePickerSingle(
-                       id='exp_date',
-                       date=str(pd.to_datetime("today").date())
+                        id='exp_date',
+                        date=str(pd.to_datetime("today").date()),
+                        className='SingleDatePicker'
                     ),
-                    width=8,
+                    width=6,
                 ),
             ],
             className="mb-3",
@@ -61,7 +63,7 @@ form = dbc.Form(
                     width=6,
                 ),
             ],
-            className="mb-2",
+            className="mb-3",
         ),
         
         dbc.Row(
@@ -81,7 +83,7 @@ form = dbc.Form(
                     width=6,
                 ),
             ],
-            className="mb-2",
+            className="mb-3",
         ),
 
         dbc.Row(
@@ -117,10 +119,10 @@ form = dbc.Form(
                    dbc.Textarea(
                         id='exp_particulars', 
                         placeholder="Enter particulars"),
-                   width=8,
+                   width=6,
                 ),
             ],
-            className="mb-2",
+            className="mb-3",
         ),
 
         dbc.Row(
@@ -134,14 +136,14 @@ form = dbc.Form(
                 ),
                 dbc.Col(
                     dbc.Input(type="text", id='exp_amount', placeholder="0,000.00"),
-                    width=5,
+                    width=6,
                 ),
                 dbc.Col(
                     html.Div(id='amount-copy', style={"color": "#C4BDBD"}),
                     width=2,
                 )
             ],
-            className="mb-2",
+            className="mb-3",
         ),
 
         dbc.Row(
@@ -162,10 +164,10 @@ form = dbc.Form(
                             {"label": "Denied", "value": 3},
                         ]
                     ),
-                    width=5,
+                    width=6,
                 ),
             ],
-            className="mb-2",
+            className="mb-3",
         ),
 
         dbc.Row(
@@ -179,14 +181,14 @@ form = dbc.Form(
                 ),
                 dbc.Col(
                     dbc.Input(type="text", id='exp_bur_no', placeholder="0000-00-00000", maxLength=11),
-                    width=5,
+                    width=6,
                 ),
                 dbc.Col(
                     html.Div(id='bur-no-copy', style={"color": "#C4BDBD"}),
                     width=2,
                 )
             ],
-            className="mb-2",
+            className="mb-3",
         ),
  
         dbc.Row(
@@ -238,13 +240,13 @@ form = dbc.Form(
                 ),
                 
             ],
-            className="mb-2",
+            className="mb-3",
         ),
 
         dbc.Row(
             [dbc.Label("",width=4),
              dbc.Col(id="expense_name_output",style={"color": "#F8B237"}, width=6)],  # Output area for uploaded file names
-            className="mb-2",
+            className="mb-3",
         ),
   
         
@@ -371,7 +373,7 @@ layout = html.Div(
                 cm.sidebar,
                 dbc.Col(
                 [
-                    html.H1("ADD EXPENSE"),
+                    html.H1(id="expenses_header"),
                     html.Hr(),
                     html.Div(  
                             [
@@ -417,34 +419,48 @@ layout = html.Div(
                                     width="auto"
                                 ),
                             ],
-                            className="mb-2",
+                            className="mb-3",
                             justify="end",
                         ),
 
                         dbc.Modal(
                             [
-                                dbc.ModalHeader(className="bg-success"),
-                                dbc.ModalBody(
-                                    ['Expense recorded successfully.'
-                                    ],id='recordexpenses_feedback_message'
-                                ),
+                                dbc.ModalHeader(html.H3("Please Confirm Your Action"), className="bg-primary"),
+                                dbc.ModalBody(html.H5(id='confirmation_modal_message')),
                                 dbc.ModalFooter(
-                                    dbc.Button(
-                                        "Proceed", href='record_expenses', id='recordexpenses_btn_modal'
-                                    ), 
+                                        [
+                                            dbc.Button("Cancel", id="confirmation_modal_cancel", color="warning"),
+                                            dbc.Button("Confirm", id="confirmation_modal_confirm", color="success"),
+                                        ], 
                                 )
                                 
                             ],
                             centered=True,
-                            id='recordexpenses_successmodal',
-                            backdrop=True,   
+                            id='confirmation_modal',
+                            backdrop="static",   
                             className="modal-success"    
-                        ), 
-                        
-                    ],
-                    width=8,
-                    style={"marginLeft": "15px"},
-                
+                        ),
+
+                        dbc.Modal(
+                            [
+                                dbc.ModalHeader(html.H5(id="final_modal_header"), close_button=False, className="bg-success"),
+                                dbc.ModalBody(html.H3("Click Proceed to continue.")),
+                                dbc.ModalFooter(
+                                    dbc.Button(
+                                        "Proceed",
+                                        href="/record_expenses",
+                                        color="success", 
+                                    ),
+                                ),
+                            ],
+                            centered=True,
+                            id='final_modal',
+                            backdrop='static',
+                            keyboard=False,
+                        ),  
+                ],
+                width=8,
+                style={"marginLeft": "15px"},
                 )
             ]
         ),
@@ -457,8 +473,7 @@ layout = html.Div(
                     cm.generate_footer(), width={"size": 12, "offset": 0}
                 ),
             ]
-        ),
-        
+        ), 
     ]
 )
 
@@ -467,6 +482,7 @@ layout = html.Div(
 #main expense dropdown
 @app.callback(
     [
+        Output('expenses_header', 'children'),
         Output('main_expense_id', 'options'),
         Output('recordexpenses_toload', 'data'),
         Output('recordexpenses_removerecord_div', 'style'),
@@ -495,35 +511,48 @@ def populate_mainexpenses_dropdown(pathname, search):
          
         parsed = urlparse(search)
         create_mode = parse_qs(parsed.query)['mode'][0]
+        header = 'Add Expense Record' if create_mode == 'add' else 'Edit Expense Record'
         to_load = 1 if create_mode == 'edit' else 0
         removediv_style = {'display': 'none'} if not to_load else None
     
     else:
         raise PreventUpdate
-    return [main_expense_types, to_load, removediv_style]
-
-
-
-
-
+    return [header, main_expense_types, to_load, removediv_style]
 
 
 
 @app.callback(
     [
+        # Check if all fields are filled
+        Output('recordexpenses_alert', 'is_open'),
         Output('recordexpenses_alert', 'color'),
         Output('recordexpenses_alert', 'children'),
-        Output('recordexpenses_alert', 'is_open'),
-        Output('recordexpenses_successmodal', 'is_open'), 
-        Output('recordexpenses_feedback_message', 'children'),
-        Output('recordexpenses_btn_modal', 'href')
+        Output('exp_date', 'className'),
+        Output('exp_payee', 'className'),
+        Output('main_expense_id', 'className'),
+        Output('sub_expense_id', 'className'),
+        Output('exp_particulars', 'className'),
+        Output('exp_amount', 'className'),
+        Output('exp_status', 'className'),
+        Output('exp_bur_no', 'className'),
+        Output('exp_submitted_by', 'className'),
+        # Open confirmation modal
+        Output('confirmation_modal', 'is_open'), 
+        Output('confirmation_modal_message', 'children'),
+        # Button Colors Change When in Edit Mode
+        Output("confirmation_modal_confirm", "color"),
+        # Open success modal
+        Output('final_modal', 'is_open'),
+        Output('final_modal_header', 'children'),
     ],
     [
         Input('recordexpenses_save_button', 'n_clicks'),
-        Input('recordexpenses_btn_modal', 'n_clicks'),
-        Input('recordexpenses_removerecord', 'value')
+        Input('confirmation_modal_confirm', 'n_clicks'),
+        Input('confirmation_modal_cancel', 'n_clicks'),
     ], 
-    [
+    [   
+        State('recordexpenses_removerecord', 'value'),
+        State('confirmation_modal', 'is_open'),
         State('exp_date', 'date'),
         State('exp_payee', 'value'),
         State('main_expense_id', 'value'),
@@ -538,7 +567,7 @@ def populate_mainexpenses_dropdown(pathname, search):
         State('url', 'search')
     ]
 )
-def save_expense(submitbtn, closebtn, removerecord,
+def save_expense(submitbtn, confirmbtn, cancelbtn, removerecord,confirmationmodal,
                  exp_date, exp_payee, main_expense_id, sub_expense_id,
                  exp_particulars, exp_amount, exp_status, 
                  exp_bur_no, exp_submitted_by,  
@@ -550,135 +579,173 @@ def save_expense(submitbtn, closebtn, removerecord,
         raise PreventUpdate
 
     eventid = ctx.triggered[0]['prop_id'].split('.')[0]
-    if eventid != 'recordexpenses_save_button' or not submitbtn:
-        raise PreventUpdate
 
+    # Set default outputs
     alert_open = False
-    modal_open = False
     alert_color = ''
     alert_text = ''
-    feedbackmessage = None
-    okay_href = None
-
+    date_class = 'SingleDatePicker'
+    payee_class= ''
+    main_expense_id_class = ''
+    sub_expense_id_class = ''
+    particulars_class = ''
+    amount_class = ''
+    status_class = ''
+    bur_no_class = ''
+    submitted_by_class = ''
+    confirmation_modal_open = False
+    confirmation_message = ''
+    btn_color = 'success'
+    final_modal_open = False
+    final_modal_header = ''
+    
     parsed = urlparse(search)
     create_mode = parse_qs(parsed.query).get('mode', [None])[0]
-
-    if create_mode == 'add':
+    
+    if eventid == 'recordexpenses_save_button' and submitbtn:
         # Ensure required fields are filled
+        def get_input_class(value):
+            return 'red-border' if not value else 'form-control'
         if not all([exp_date, exp_payee, main_expense_id, sub_expense_id,
-                exp_particulars, exp_amount, exp_status, exp_bur_no, exp_submitted_by]):
+                exp_particulars, exp_amount, exp_status, exp_bur_no, exp_submitted_by]) and not removerecord:
+            alert_open = True
             alert_color = 'danger'
             alert_text = 'Missing required fields.'
-            return [alert_color, alert_text, True, modal_open, feedbackmessage, okay_href]
+            date_class = 'SingleDatePicker red-border' if not exp_date else 'SingleDatePicker'
+            payee_class= get_input_class(exp_payee)
+            main_expense_id_class = get_input_class(main_expense_id)
+            sub_expense_id_class = get_input_class(sub_expense_id)
+            particulars_class = get_input_class(exp_particulars)
+            amount_class = get_input_class(exp_amount)
+            status_class = get_input_class(exp_status)
+            bur_no_class = get_input_class(exp_bur_no)
+            submitted_by_class = get_input_class(exp_submitted_by)
+        else: # all inputs are valid
+            if create_mode == 'add':
+                confirmation_modal_open = True
+                confirmation_message = "Are you sure you want to add this expense record?"
+            elif create_mode == 'edit':
+                confirmation_modal_open = True
+                confirmation_message = "Are you sure you want to save changes to this expense record?"
+                if removerecord:
+                    confirmation_message = "Are you sure you want to delete this expense record?"
+                    btn_color = 'danger'
 
-        if exp_receipt_contents is None or exp_receipt_names is None:
-            exp_receipt_contents = ["1"]
-            exp_receipt_names = ["1"]
+    elif eventid == 'confirmation_modal_confirm' and confirmbtn:
+        if confirmationmodal:
+            if create_mode == 'add':
+                if exp_receipt_contents is None or exp_receipt_names is None:
+                    exp_receipt_contents = ["1"]
+                    exp_receipt_names = ["1"]
 
-        file_data = []
-        if exp_receipt_contents and exp_receipt_names:
-            for content, filename in zip(exp_receipt_contents, exp_receipt_names):
-                if content == "1" and filename == "1":
-                    continue  # Skip default "1" value
-                try:     
-                    # Decode and save the file
-                    content_type, content_string = content.split(',')
-                    decoded_content = base64.b64decode(content_string)
+                file_data = []
+                if exp_receipt_contents and exp_receipt_names:
+                    for content, filename in zip(exp_receipt_contents, exp_receipt_names):
+                        if content == "1" and filename == "1":
+                            continue  # Skip default "1" value
+                        try:     
+                            # Decode and save the file
+                            content_type, content_string = content.split(',')
+                            decoded_content = base64.b64decode(content_string)
 
-                    file_path = os.path.join(UPLOAD_DIRECTORY, filename)
-                    with open(file_path, 'wb') as f:
-                        f.write(decoded_content)
+                            file_path = os.path.join(UPLOAD_DIRECTORY, filename)
+                            with open(file_path, 'wb') as f:
+                                f.write(decoded_content)
 
-                    file_info = {
-                        "path": file_path,
-                        "name": filename,
-                        "type": content_type,
-                        "size": len(decoded_content),
-                    }
-                    file_data.append(file_info)
+                            file_info = {
+                                "path": file_path,
+                                "name": filename,
+                                "type": content_type,
+                                "size": len(decoded_content),
+                            }
+                            file_data.append(file_info)
 
+                        except Exception as e:
+                            alert_open = True
+                            alert_color = 'danger'
+                            alert_text = f'Error processing file: {e}'
+                            return [alert_open, alert_color, alert_text]
+                
+                sql = """ 
+                    INSERT INTO adminteam.expenses (
+                        exp_date, exp_payee, main_expense_id, sub_expense_id,
+                        exp_particulars, exp_amount, exp_status, 
+                        exp_bur_no, exp_submitted_by,  
+                        exp_receipt_path, exp_receipt_name, exp_receipt_type, exp_receipt_size 
+                    ) 
+                            
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                """
+                values = (
+                    exp_date, exp_payee, main_expense_id, sub_expense_id, 
+                    exp_particulars, exp_amount, exp_status, exp_bur_no, 
+                    exp_submitted_by, 
+                    file_data[0]["path"] if file_data else None,
+                    file_data[0]["name"] if file_data else None,
+                    file_data[0]["type"] if file_data else None,
+                    file_data[0]["size"] if file_data else None,
+                )    
+                try:
+                    db.modifydatabase(sql, values)
+                    final_modal_open = True
+                    final_modal_header = html.H5("Expense Record Successfully Added.")
+                        
                 except Exception as e:
                     alert_open = True
                     alert_color = 'danger'
-                    alert_text = f'Error processing file: {e}'
-                    return [alert_color, alert_text, alert_open, modal_open, feedbackmessage, okay_href]
-
-        sql = """ 
-            INSERT INTO adminteam.expenses (
-                exp_date, exp_payee, main_expense_id, sub_expense_id,
-                exp_particulars, exp_amount, exp_status, 
-                exp_bur_no, exp_submitted_by,  
-                exp_receipt_path, exp_receipt_name, exp_receipt_type, exp_receipt_size 
-            ) 
+                    alert_text = f'Error copying record: {e}'
+                    return [alert_open, alert_color, alert_text]
+        
+            elif create_mode == 'edit': 
+                expid = parse_qs(parsed.query).get('id', [None])[0]
                 
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-        """
-        values = (
-            exp_date, exp_payee, main_expense_id, sub_expense_id, 
-            exp_particulars, exp_amount, exp_status, exp_bur_no, 
-            exp_submitted_by, 
-            file_data[0]["path"] if file_data else None,
-            file_data[0]["name"] if file_data else None,
-            file_data[0]["type"] if file_data else None,
-            file_data[0]["size"] if file_data else None,
-        )
-        
-        try:
-            db.modifydatabase(sql, values)
-            modal_open = True
-            feedbackmessage = html.H5("Expense recorded successfully.")
-            okay_href = "/record_expenses"
-            
-        except Exception as e:
-            alert_color = 'danger'
-            alert_text = f'Error copying record: {e}'
-            return [alert_color, alert_text, True, modal_open, feedbackmessage, okay_href]
- 
+                if expid is None:
+                    raise PreventUpdate
+                
+                sqlcode = """
+                    UPDATE adminteam.expenses
+                    SET
+                        exp_date = %s,
+                        exp_payee = %s, 
+                        exp_particulars = %s, 
+                        exp_status = %s,
+                        exp_bur_no = %s,
+                        exp_submitted_by = %s, 
+                        exp_timestamp = CURRENT_TIMESTAMP,
+                        exp_del_ind = %s
+                    WHERE 
+                        exp_id = %s
+                """
+                to_delete = bool(removerecord) 
 
-    elif create_mode == 'edit': 
-        expid = parse_qs(parsed.query).get('id', [None])[0]
-        
-        if expid is None:
-            raise PreventUpdate
-        
-        sqlcode = """
-            UPDATE adminteam.expenses
-            SET
-                exp_date = %s,
-                exp_payee = %s, 
-                exp_particulars = %s, 
-                exp_status = %s,
-                exp_bur_no = %s,
-                exp_submitted_by = %s, 
-                exp_del_ind = %s
-            WHERE 
-                exp_id = %s
-        """
-        to_delete = bool(removerecord) 
+                values = [
+                    exp_date, exp_payee, exp_particulars,
+                    exp_status, exp_bur_no, exp_submitted_by,
+                    to_delete, expid
+                ]
+                db.modifydatabase(sqlcode, values)
 
-        values = [
-            exp_date, exp_payee, exp_particulars,
-            exp_status, exp_bur_no, exp_submitted_by,
-            to_delete, expid
-        ]
-        db.modifydatabase(sqlcode, values)
+                final_modal_open = True
+                final_modal_header = html.H5("Expense Record Edited Successfully.")
+            else:
+                raise PreventUpdate
 
-        feedbackmessage = html.H5("Status has been updated.")
-        okay_href = "/record_expenses"
-        modal_open = True
+    elif eventid == 'confirmation_modal_cancel' and cancelbtn:
+        if confirmationmodal:
+            confirmation_modal_open = False
+            confirmation_message = ''
 
     else:
-        raise PreventUpdate
+        raise PreventUpdate   
 
-    return [alert_color, alert_text, alert_open, modal_open, feedbackmessage, okay_href]
-
-
-
+    return [alert_open, alert_color, alert_text, date_class, payee_class, main_expense_id_class, sub_expense_id_class, particulars_class, amount_class,
+            status_class, bur_no_class, submitted_by_class, confirmation_modal_open, confirmation_message, btn_color, final_modal_open, final_modal_header]
+    
 
 
 @app.callback(
     [
-        Output('exp_date', 'value'),
+        Output('exp_date', 'date'),
         Output('exp_payee', 'value'),
         Output('main_expense_id', 'value'),
         Output('sub_expense_id', 'value'),

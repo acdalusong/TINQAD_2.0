@@ -33,29 +33,139 @@ layout = html.Div(
               
                 dbc.Col(
                     [
-                        html.H1("RECORD EXPENSES"),
-                        html.Hr(),
-                        dbc.Row(   
+                        dbc.Row(
                             [
-                                dbc.Col(  
-                                    dbc.Input(
-                                        type='text',
-                                        id='recordexpenses_filter',
-                                        placeholder='🔎 Search by Payee Name, Status, BUR no.',
-                                        className='ml-auto'   
-                                    ),
-                                    width=8,
+                                dbc.Col(
+                                    html.H1("RECORD EXPENSES"),
+                                    style={"marginRight": "auto"}  
                                 ),
-                                dbc.Col(   
+                                dbc.Col( 
                                     dbc.Button(
                                         "➕ Add expense", color="primary", 
                                         href='/record_expenses/add_expense?mode=add', 
                                     ),
-                                    width="auto",    
+                                    width="auto",
+                                    style={"marginLeft": "auto"},   
                                 ),
                             ],
-                            className="align-items-center",   
-                            justify="between",  
+                            style={"marginBottom": "-10px"}
+                        ),
+                        html.Hr(),
+                        dbc.Row(   
+                            [
+                                dbc.Col(  
+                                    html.Label(
+                                        "Payee Name:", 
+                                        className="form-label", 
+                                        style={
+                                            "fontSize": "18px", 
+                                            "fontWeight": "bold",
+                                        }
+                                    ),
+                                    width=2,
+                                ),
+                                dbc.Col(  
+                                    dbc.Input(
+                                        type='text',
+                                        id='payee_name_filter',
+                                        placeholder='Search by Payee Name',
+                                        className='ml-auto'   
+                                    ),
+                                    width=4,
+                                ),
+                            ],
+                            className="align-items-center mb-2",    
+                        ),
+                        dbc.Row(   
+                            [
+                                dbc.Col(  
+                                    html.Label(
+                                        "Main Expense Type:", 
+                                        className="form-label", 
+                                        style={
+                                            "fontSize": "18px", 
+                                            "fontWeight": "bold",
+                                        }
+                                    ),
+                                    width=2,
+                                ),
+                                dbc.Col(  
+                                    dcc.Dropdown(
+                                    id="main_expense_filter",
+                                    options=[],
+                                    placeholder=" Select Main Expense"
+                                    ),
+                                    width=4,
+                                ),
+                                dbc.Col(  
+                                    html.Label(
+                                        "Sub Expense Type:", 
+                                        className="form-label", 
+                                        style={
+                                            "fontSize": "18px", 
+                                            "fontWeight": "bold",
+                                            "width": "100%"}
+                                    ),
+                                    width=2,
+                                ),
+                                dbc.Col(  
+                                    dcc.Dropdown(
+                                    id="sub_expense_filter",
+                                    options=[],
+                                    placeholder=" Select Sub Expense"
+                                    ),
+                                    width=4,
+                                ),
+                            ],
+                            className="align-items-center mb-2",   
+                        ),
+                        dbc.Row(   
+                            [
+                                dbc.Col(  
+                                    html.Label(
+                                        "Select Status:", 
+                                        className="form-label", 
+                                        style={
+                                            "fontSize": "18px", 
+                                            "fontWeight": "bold",
+                                            "width": "100%"}
+                                    ),
+                                    width=2,
+                                ),
+                                dbc.Col(  
+                                    dcc.Dropdown(
+                                    id="status_filter",
+                                    options=[
+                                        {"label": "Approved", "value": "Approved"},
+                                        {"label": "Pending", "value": "Pending"},
+                                        {"label": "Denied", "value": "Denied"},
+                                    ],
+                                    placeholder=" Select Status"
+                                    ),
+                                    width=4,
+                                ),
+                                dbc.Col(  
+                                    html.Label(
+                                        "BUR No:", 
+                                        className="form-label", 
+                                        style={
+                                            "fontSize": "18px", 
+                                            "fontWeight": "bold",
+                                        }
+                                    ),
+                                    width=2,
+                                ),
+                                dbc.Col(  
+                                    dbc.Input(
+                                        type='text',
+                                        id='burno_filter',
+                                        placeholder='Search by Bur No',
+                                        className='ml-auto'   
+                                    ),
+                                    width=4,
+                                ),
+                            ],
+                            className="align-items-center mb-2",   
                         ),
                         html.Br(),
 
@@ -101,6 +211,59 @@ layout = html.Div(
     ]
 )
 
+#main expense dropdown
+@app.callback(
+    [
+        Output('main_expense_filter', 'options'),
+    ],
+    [
+        Input('url', 'pathname')
+    ],
+)
+
+def populate_mainexpenses_dropdown(pathname):
+    # Check if the pathname matches if necessary
+    if pathname == '/record_expenses':
+        sql = """
+            SELECT main_expense_name as label,  main_expense_id  as value
+            FROM adminteam.main_expenses
+
+            WHERE main_expense_del_ind = False
+        """
+        values = []
+        cols = ['label', 'value']
+        df = db.querydatafromdatabase(sql, values, cols)
+        main_expense_types = df.to_dict('records')    
+    else:
+        raise PreventUpdate
+    return [main_expense_types]
+
+#sub expense dropdown
+@app.callback(
+    Output('sub_expense_filter', 'options'),
+    Input('main_expense_filter', 'value')
+)
+def update_subexpenses_options(selected_main_expense):
+    if selected_main_expense is None:
+        return []  # Return empty options if no main expense is selected
+    
+    try:
+        # Query to fetch sub-expenses based on the selected main expense
+        sql = """
+        SELECT sub_expense_name as label, sub_expense_id as value
+        FROM adminteam.sub_expenses
+        WHERE main_expense_id = %s
+        """
+        values = [selected_main_expense]
+        cols = ['label', 'value']
+        df = db.querydatafromdatabase(sql, values, cols)
+        
+        sub_expense_options = df.to_dict('records')
+        return sub_expense_options
+    except Exception as e:
+        # Log the error or handle it appropriately
+        return [] 
+
 @app.callback(
     Output("tabs-content", "children"),
     [Input("tabs", "active_tab")],
@@ -132,11 +295,15 @@ def switch_tab(tab):
     Output('recordexpenses_list', 'children'),
     [
         Input('url', 'pathname'),   
-        Input('recordexpenses_filter', 'value'),
+        Input('payee_name_filter', 'value'),
+        Input('status_filter', 'value'),
+        Input('main_expense_filter', 'value'),
+        Input('sub_expense_filter', 'value'),
+        Input('burno_filter', 'value'),
         Input("tabs", "active_tab")
     ]
 )
-def recordexpenses_loadlist(pathname, searchterm, active_tab):
+def recordexpenses_loadlist(pathname, searchterm, status, main_expense, sub_expense, bur_no, active_tab):
     if pathname == '/record_expenses':
         current_month = datetime.datetime.now().month
         current_year = datetime.datetime.now().year
@@ -168,9 +335,29 @@ def recordexpenses_loadlist(pathname, searchterm, active_tab):
             values = [current_month, current_year]
 
             if searchterm:
-                sql += """ AND (exp_payee ILIKE %s OR es.expense_status_name ILIKE %s OR exp_bur_no ILIKE %s) """
-                like_pattern = f"%{searchterm}%"
-                values.extend([like_pattern, like_pattern, like_pattern])
+                sql += """ AND (exp_payee ILIKE %s) """
+                name_like_pattern = f"%{searchterm}%"
+                values.append([name_like_pattern])
+
+            if status:
+                sql += """ AND es.expense_status_name = %s """
+                values.append(status)
+            
+            if main_expense:
+                sql += """ AND me.main_expense_id = %s"""
+                values.append(main_expense)
+            
+            if main_expense and sub_expense:
+                sql += """ AND se.sub_expense_id = %s"""
+                values.append(sub_expense)
+            
+            if bur_no:
+                sql += """ AND exp_bur_no ILIKE %s"""
+                burno_like_pattern = f"%{bur_no}%"
+                values.append(burno_like_pattern)
+
+            # Add ORDER BY clause at the end
+            sql += " ORDER BY exp_timestamp DESC"
 
             cols = ['ID', 'Date', 'Payee Name', 'Main Expense Type', 
                     'Sub Expense Type', 'Particulars', 'Amount', 'Status', 
@@ -199,14 +386,32 @@ def recordexpenses_loadlist(pathname, searchterm, active_tab):
                     exp_del_ind IS FALSE
             """
             values = []
+            
             cols = ['ID', 'Date', 'Payee Name', 'Main Expense Type',
                     'Sub Expense Type', 'Particulars', 'Amount', 'Status', 
                     'BUR No', 'Submitted by','File', 'File Path']
 
             if searchterm:
-                sql += """ AND (exp_payee ILIKE %s OR es.expense_status_name ILIKE %s OR exp_bur_no ILIKE %s) """
-                like_pattern = f"%{searchterm}%"
-                values.extend([like_pattern, like_pattern, like_pattern])
+                sql += """ AND (exp_payee ILIKE %s) """
+                name_like_pattern = f"%{searchterm}%"
+                values.extend([name_like_pattern])
+
+            if status:
+                sql += """ AND es.expense_status_name = %s """
+                values.append(status)
+            
+            if main_expense:
+                sql += """ AND me.main_expense_id = %s"""
+                values.append(main_expense)
+            
+            if main_expense and sub_expense:
+                sql += """ AND se.sub_expense_id = %s"""
+                values.append(sub_expense)
+            
+            if bur_no:
+                sql += """ AND exp_bur_no ILIKE %s"""
+                burno_like_pattern = f"%{bur_no}%"
+                values.extend(burno_like_pattern)
 
         df = db.querydatafromdatabase(sql, values, cols)
  

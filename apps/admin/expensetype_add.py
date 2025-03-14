@@ -1,6 +1,8 @@
-import dash
 import dash_bootstrap_components as dbc
-from dash import dash, html, dcc 
+from dash import dash, html, dcc, Input, Output, State, no_update
+from dash import callback_context
+
+import dash
 
 from dash.dependencies import Input, Output, State
 from dash.exceptions import PreventUpdate
@@ -9,7 +11,6 @@ import pandas as pd
 from apps import commonmodules as cm
 from app import app
 from apps import dbconnect as db 
-
 
 
 form = dbc.Form(
@@ -136,17 +137,38 @@ form = dbc.Form(
         # Success Modal
         dbc.Modal(
             [
-                dbc.ModalHeader(className="bg-success"),
+                dbc.ModalHeader(html.H3("Please Confirm Your Action"), className="bg-primary"),
                 dbc.ModalBody(
-                    html.H4("New expense type added."),
+                    html.H5(id='first_modal_message'),
                 ),
                 dbc.ModalFooter(
-                    dbc.Button("Proceed", href='/expense_list', id="proceed_button", className="ml-auto"),
+                    [
+                        dbc.Button("Cancel", id= "first_modal_cancel", color="warning"),
+                        dbc.Button("Confirm", id= "first_modal_confirm", color="success")
+                    ]
                 ),
             ],
             centered=True,
-            id="expensetype_successmodal",
+            id="first_modal",
             backdrop=True,
+            className="modal-success",
+        ),
+
+        dbc.Modal(
+            [
+                dbc.ModalHeader(html.H3(id='modal_final_header'), close_button=False, className="bg-success"),
+                dbc.ModalBody(
+                    html.H5("Click Proceed to continue"),
+                ),
+                dbc.ModalFooter(
+                    [
+                        dbc.Button("Proceed", href='/expense_list', color="success"),
+                    ]
+                ),
+            ],
+            centered=True,
+            id="modal_final",
+            backdrop="static",
             className="modal-success",
         ),
     ],
@@ -238,13 +260,23 @@ def toggle_types(expense_type):
 
 @app.callback(
     [
+        Output('select_expense_type', 'className'),
+        Output('main_expense_name', 'className'),
+        Output('main_expense_shortname', 'className'),
+        Output('main_expensetype_id', 'className'),
+        Output('sub_expense_name', 'className'),
+        Output('expensetype_alert', 'is_open'),
         Output('expensetype_alert', 'color'),
         Output('expensetype_alert', 'children'),
-        Output('expensetype_alert', 'is_open'),
-        Output('expensetype_successmodal', 'is_open')
+        Output('first_modal', 'is_open'),
+        Output('first_modal_message', 'children'),
+        Output('modal_final', 'is_open'),
+        Output('modal_final_header', 'children'),
     ],
     [
-        Input('save_button', 'n_clicks')
+        Input('save_button', 'n_clicks'),
+        Input('first_modal_cancel', 'n_clicks'),
+        Input('first_modal_confirm', 'n_clicks'),
     ],
     [
         State('select_expense_type', 'value'),
@@ -254,65 +286,92 @@ def toggle_types(expense_type):
         State('sub_expense_name', 'value')
     ]
 )
-def add_expense(submitbtn, expense_type, main_expense_name, main_expense_shortname, main_expense_id, sub_expense_name):
-    if not submitbtn:
-        raise PreventUpdate
+def add_expense(submitbtn, cancelbtn, confirmbtn, expense_type, main_expense_name, main_expense_shortname, main_expense_id, sub_expense_name):
+    
+    ctx = dash.callback_context
 
-    # Default values
+    if not ctx.triggered:
+        raise PreventUpdate
+    
+    eventid = ctx.triggered[0]['prop_id'].split('.')[0]
+    
+    def get_input_class(value):
+            return 'red-border' if not value else 'form-control'
+    # Set Default values
+    select_expense_type_class = ''
+    main_expense_name_class = ''
+    main_expense_shortname_class = ''
+    main_expensetype_id_class = ''
+    sub_expense_name_class = ''
     alert_open = False
-    modal_open = False
     alert_color = ""
     alert_text = ""
+    first_modal_open = False
+    first_modal_message = ""
+    final_modal_open = False
+    final_modal_header = ''
+    
+    if eventid == 'save_button' and submitbtn:
+        # Ensure required fields are filled
+        if expense_type == 'Main Expense':
+            if not main_expense_name or not main_expense_shortname:
+                alert_open = True
+                alert_color = "danger"
+                alert_text = "Check your inputs. Please add a Main Expense Name and Short Name."
+                main_expense_name_class = get_input_class(main_expense_name)
+                main_expense_shortname_class = get_input_class(main_expense_shortname)
+            else:
+                first_modal_open = True
+                first_modal_message = 'Are you sure you want to add this Main Expense?'
 
-    if expense_type == 'Main Expense':
-        if not main_expense_name or not main_expense_shortname:
+        elif expense_type == 'Sub Expense':
+            if not sub_expense_name or not main_expense_id:
+                alert_open = True
+                alert_color = "danger"
+                alert_text = "Check your inputs. Please select a Main Expense and add a Sub Expense Name."
+                main_expensetype_id_class = get_input_class(main_expense_id)
+                sub_expense_name_class = get_input_class(sub_expense_name)
+            else:
+                first_modal_open = True
+                first_modal_message = 'Are you sure you want to add this Sub Expense?'
+
+        else:
             alert_open = True
             alert_color = "danger"
-            alert_text = "Check your inputs. Please add a Main Expense Name and Short Name."
-            return [alert_color, alert_text, alert_open, modal_open]
+            alert_text = "Check your inputs. Please Select an Expense Type."
+            select_expense_type_class = get_input_class(expense_type)
 
-        try:
+    elif eventid == 'first_modal_confirm' and confirmbtn:
+        if expense_type == 'Main Expense':
             sql = """
-                INSERT INTO adminteam.main_expenses(
-                    main_expense_name, main_expense_shortname
-                )
-                VALUES (%s, %s)
-            """
+                    INSERT INTO adminteam.main_expenses(
+                        main_expense_name, main_expense_shortname
+                    )
+                    VALUES (%s, %s)
+                """
             values = (main_expense_name, main_expense_shortname)
             db.modifydatabase(sql, values)
-            modal_open = True
-            alert_color = "success"
-            alert_text = "Main expense type added successfully."
-        except Exception as e:
-            alert_color = "danger"
-            alert_text = "An error occurred while saving the data."
-            alert_open = True
+            final_modal_open = True
+            final_modal_header = "Main Expense Successfully Added"
 
-    elif expense_type == 'Sub Expense':
-        if not sub_expense_name or not main_expense_id:
-            alert_open = True
-            alert_color = "danger"
-            alert_text = "Check your inputs. Please select a Main Expense and add a Sub Expense Name."
-            return [alert_color, alert_text, alert_open, modal_open]
-
-        try:
+        elif expense_type == 'Sub Expense':
             sql = """
-                INSERT INTO adminteam.sub_expenses(
-                    main_expense_id, sub_expense_name
-                )
-                VALUES (%s, %s)
-            """
+                    INSERT INTO adminteam.sub_expenses(
+                        main_expense_id, sub_expense_name
+                    )
+                    VALUES (%s, %s)
+                """
             values = (main_expense_id, sub_expense_name)
             db.modifydatabase(sql, values)
-            modal_open = True
-            alert_color = "success"
-            alert_text = "Sub expense type added successfully."
-        except Exception as e:
-            alert_color = "danger"
-            alert_text = "An error occurred while saving the data."
-            alert_open = True
+            final_modal_open = True
+            final_modal_header = "Sub Expense Successfully Added"
 
+    elif eventid == 'first_modal_cancel' and cancelbtn:
+        first_modal_open = False
+        first_modal_message = ""
+    
     else:
         raise PreventUpdate
 
-    return [alert_color, alert_text, alert_open, modal_open]
+    return [select_expense_type_class, main_expense_name_class, main_expense_shortname_class, main_expensetype_id_class, sub_expense_name_class,
+            alert_open, alert_color, alert_text, first_modal_open, first_modal_message, final_modal_open, final_modal_header]

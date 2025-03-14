@@ -10,7 +10,6 @@ from apps import commonmodules as cm
 from app import app
 from apps import dbconnect as db
 
-
 # Using the corrected path
 UPLOAD_DIRECTORY = r".\assets\database\admin\trainings"
 
@@ -25,19 +24,11 @@ layout = html.Div(
                 cm.sidebar,
                 dbc.Col(
                     [
-                        html.H1("TRAINING LIST"),
-                        html.Hr(),
-                        
-                        dbc.Row(   
+                        dbc.Row(
                             [
-                                dbc.Col(  
-                                    dbc.Input(
-                                        type='text',
-                                        id='traininglist_filter',
-                                        placeholder='🔎 Search by Name, Faculty Position, Training Type, Cluster',
-                                        className='ml-auto'   
-                                    ),
-                                    width="8",
+                                dbc.Col(
+                                    html.H1("TRAINING LIST"),
+                                    style={"marginRight": "auto"}  
                                 ),
                                 dbc.Col(   
                                     dbc.Button(
@@ -45,13 +36,100 @@ layout = html.Div(
                                         href='/training_documents?mode=add',  
                                     ),
                                     width="auto",    
+                                ),
+                            ],
+                            style={"marginBottom": "-10px"}
+                        ),
+                        html.Hr(),
+                        
+                        dbc.Row(   
+                            [
+                                dbc.Col(  
+                                    html.Label(
+                                        "Name:", 
+                                        className="form-label", 
+                                        style={
+                                            "fontSize": "18px", 
+                                            "fontWeight": "bold",
+                                        }
+                                    ),
+                                    width=2,
+                                ),
+                                dbc.Col(  
+                                    dbc.Input(
+                                        type='text',
+                                        id='name_filter',
+                                        placeholder='Search by Name, Faculty Position, Training Type, Cluster',
+                                        className='ml-auto'   
+                                    ),
+                                    width="4",
+                                ),
+                                dbc.Col(  
+                                    html.Label(
+                                        "Faculty Position:", 
+                                        className="form-label", 
+                                        style={
+                                            "fontSize": "18px", 
+                                            "fontWeight": "bold",
+                                        }
+                                    ),
+                                    width=2,
+                                ),
+                                dbc.Col(  
+                                    dcc.Dropdown(
+                                    id="faculty_position_filter",
+                                    options=[],
+                                    placeholder=" Select Faculty Position"
+                                    ),
+                                    width=4,
                                 ), 
                             ],
-                            className="align-items-center",   
-                            justify="between",  
+                            className="align-items-center",    
+                        ),
+                        dbc.Row(   
+                            [
+                                dbc.Col(  
+                                    html.Label(
+                                        "Training Type:", 
+                                        className="form-label", 
+                                        style={
+                                            "fontSize": "18px", 
+                                            "fontWeight": "bold",
+                                        }
+                                    ),
+                                    width=2,
+                                ),
+                                dbc.Col(  
+                                    dcc.Dropdown(
+                                    id="training_type_filter",
+                                    options=[],
+                                    placeholder=" Select Training Type"
+                                    ),
+                                    width=4,
+                                ),
+                                dbc.Col(  
+                                    html.Label(
+                                        "Cluster:", 
+                                        className="form-label", 
+                                        style={
+                                            "fontSize": "18px", 
+                                            "fontWeight": "bold",
+                                            "width": "100%"}
+                                    ),
+                                    width=2,
+                                ),
+                                dbc.Col(  
+                                    dcc.Dropdown(
+                                    id="cluster_filter",
+                                    options=[],
+                                    placeholder=" Select Cluster"
+                                    ),
+                                    width=4,
+                                ),
+                            ],
+                            className="align-items-center mb-2",   
                         ),
                         
-
  
                         html.Div(
                             id='traininglist_list', 
@@ -59,7 +137,7 @@ layout = html.Div(
                                 'marginTop': '20px',
                                 'overflowX': 'auto', 
                                 'overflowY': 'auto',   
-                                'maxHeight': '800px',
+                                'maxHeight': '1000px',
                             }
                         ),
 
@@ -79,7 +157,70 @@ layout = html.Div(
 )
 
 
+#faculty positions dropdown
+@app.callback(
+    Output('faculty_position_filter', 'options'),
+    Input('url', 'pathname')
+)
 
+def facultypositions_filter_dropdown(pathname):
+    # Check if the pathname matches if necessary
+    if pathname == '/training_record':
+        sql = """
+        SELECT fac_posn_name as label, fac_posn_name  as value
+        FROM public.fac_posns
+        """
+        values = []
+        cols = ['label', 'value']
+        df = db.querydatafromdatabase(sql, values, cols)
+        
+        fac_posns_types = df.to_dict('records')
+        return fac_posns_types
+    else:
+        raise PreventUpdate
+    
+#qa training dropdown
+@app.callback(
+    Output('training_type_filter', 'options'),
+    Input('url', 'pathname')
+)
+def trainings_filter_dropdown(pathname):
+    # Check if the pathname matches if necessary
+    if pathname == '/training_record':
+        sql = """
+        SELECT trainingtype_name as label, trainingtype_id as value
+        FROM qaofficers.training_type
+        """
+        values = []
+        cols = ['label', 'value']
+        df = db.querydatafromdatabase(sql, values, cols)
+        
+        qa_training_options = df.to_dict('records')
+        return qa_training_options
+    else:
+        raise PreventUpdate
+    
+#cluster_filter dropdown
+@app.callback(
+    Output('cluster_filter', 'options'),
+    Input('url', 'pathname')
+)
+def cluster_filter_dropdown(pathname):
+    # Check if the pathname matches if necessary
+    if pathname == '/training_record':
+        sql = """
+            SELECT cluster_name as label, cluster_id  as value
+            FROM public.clusters
+            
+            WHERE cluster_del_ind = False
+        """
+        values = []
+        cols = ['label', 'value']
+        df = db.querydatafromdatabase(sql, values, cols)
+        cluster_options = df.to_dict('records')
+        return cluster_options
+    else:
+        raise PreventUpdate
 
 @app.callback(
     [
@@ -87,10 +228,13 @@ layout = html.Div(
     ],
     [
         Input('url', 'pathname'),
-        Input('traininglist_filter', 'value'),
+        Input('name_filter', 'value'),
+        Input('faculty_position_filter', 'value'),
+        Input('training_type_filter', 'value'),
+        Input('cluster_filter', 'value')
     ]
 )
-def traininglist_loadlist(pathname, searchterm):
+def traininglist_loadlist(pathname, searchterm, position, trainingtype, cluster):
     if pathname == '/training_record':
         sql = """
             SELECT 
@@ -113,7 +257,6 @@ def traininglist_loadlist(pathname, searchterm):
                 others_name AS "Other Receipts",
                 recert_path AS "Receiving Copy path",
                 recert_name AS "Receiving Copy"
-
             FROM 
                 adminteam.training_documents td
             LEFT JOIN 
@@ -122,10 +265,32 @@ def traininglist_loadlist(pathname, searchterm):
                 public.college col ON td.college_id = col.college_id
             LEFT JOIN 
                 qaofficers.training_type qt ON td.qa_training_id = qt.trainingtype_id
-            WHERE 
-                train_docs_del_ind IS FALSE
-        
         """
+        filters = ["train_docs_del_ind IS FALSE"]
+        values = []
+
+        if searchterm: 
+            filters.append("td.complete_name ILIKE %s")
+            values.append(f"%{searchterm}%")
+
+        if position:
+            filters.append("td.fac_posn ILIKE %s")
+            values.append(f"%{position}%")
+
+        if trainingtype:
+            filters.append("td.qa_training_id = %s")
+            values.append(trainingtype)
+        
+        if cluster:
+            filters.append("td.cluster_id = %s")
+            values.append(cluster)
+        
+        # Append filters if any exist
+        if filters:
+            sql += " WHERE " + " AND ".join(filters)
+
+         # Append ORDER BY after filters
+        sql += " ORDER BY train_docs_timestamp DESC"
 
         cols = ["ID","QAO Name","Faculty Position","Cluster","College",
                 "QA Training", "Departure Date", "Return Date","Venue",
@@ -141,14 +306,6 @@ def traininglist_loadlist(pathname, searchterm):
                 "Receiving Copy"
             ]
 
-        if searchterm: 
-            sql += """ AND (td.complete_name ILIKE %s OR td.fac_posn ILIKE %s OR qt.trainingtype_name ILIKE %s OR 
-                clu.cluster_name ILIKE %s) """
-            like_pattern = f"%{searchterm}%"
-            values = [like_pattern, like_pattern, like_pattern, like_pattern]
-        else:
-            values = []
-
         df = db.querydatafromdatabase(sql, values, cols) 
 
         if not df.empty: 
@@ -158,7 +315,7 @@ def traininglist_loadlist(pathname, searchterm):
                     style={'text-align': 'center'}
                 )
             )
-            df = df[["ID","QAO Name","Faculty Position","Cluster","College",
+            df = df[["QAO Name","Faculty Position","Cluster","College",
                     "QA Training", "Departure Date", "Return Date","Venue",
                     "Participant Attendance Cert.", "Official Receipt",
                     "Official Travel Report", "Other Receipts",
